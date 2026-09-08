@@ -1,0 +1,54 @@
+# YouTube 키워드 트래커
+
+`#世界樹計畫` 같은 캠페인/키워드의 영상 수, 조회수, Top5 영상을 검색·집계하는 팀 공용 웹앱입니다.
+Streamlit Cloud에 올리면 링크 하나로 팀원 모두가 브라우저에서 바로 사용할 수 있습니다.
+
+## 기능
+- 키워드 2개 이상 AND / OR 검색
+- 검색 기간 + 시간대(대만/한국/UTC) 설정
+- 검색 모드 2가지
+  - **전체 검색 (Search API)**: 키워드로 유튜브 전체 검색 (쿼터 소모 큼)
+  - **채널 지정 검색 (Playlist 방식)**: 캠페인 참여 채널 목록만 훑어서 쿼터 대폭 절약
+- 결과: 전체 / 롱폼 / 쇼츠 / 라이브 다시보기 별 영상 수 · 조회수 합계 · Top5
+- CSV 다운로드 (엑셀에서 바로 열림)
+
+## 배포 방법 (GitHub + Streamlit Cloud)
+
+### 1. GitHub 저장소 만들기
+1. github.com에서 새 저장소 생성 (예: `yt-keyword-tracker`), Public 또는 팀 계정 소유의 Private 모두 가능
+   (Private으로 하려면 Streamlit Cloud와 GitHub 계정 연동 필요)
+2. 이 폴더의 3개 파일(`app.py`, `requirements.txt`, `README.md`)을 저장소에 업로드
+   ```bash
+   git init
+   git add app.py requirements.txt README.md
+   git commit -m "Initial commit: YouTube keyword tracker"
+   git branch -M main
+   git remote add origin https://github.com/<본인계정>/yt-keyword-tracker.git
+   git push -u origin main
+   ```
+
+### 2. Streamlit Cloud 배포
+1. https://share.streamlit.io 접속 → GitHub 계정으로 로그인
+2. "New app" 클릭
+3. 방금 만든 저장소 / `main` 브랜치 / `app.py` 선택
+4. Deploy 클릭 → 1~2분 후 `https://<앱이름>.streamlit.app` 형태의 공개 URL 생성됨
+
+### 3. 팀원에게 공유
+- 생성된 URL을 Slack 채널 / Notion 페이지 / Confluence 문서에 링크로 공유하면 됩니다.
+- 팀원은 별도 설치 없이 브라우저에서 접속 → 본인 YouTube Data API Key 입력 → 바로 사용 가능합니다.
+
+## API Key 안내 (팀원 배포 시 함께 공유)
+- 각자 Google Cloud Console(console.cloud.google.com)에서 프로젝트 생성 후 "YouTube Data API v3" 활성화 → 사용자 인증 정보에서 API 키 발급
+- 이 앱은 입력된 API Key를 서버에 저장하지 않고, 해당 세션에서만 사용합니다. 새로고침하면 다시 입력해야 합니다.
+- 일일 쿼터는 기본 10,000 units/day (프로젝트당). `search.list` 1회당 100 units 소모되므로, 검색 범위가 넓거나 자주 돌릴 경우 "채널 지정 검색(Playlist 방식)" 모드 사용을 권장합니다 (`playlistItems.list`는 1 unit).
+
+## 로컬에서 먼저 테스트하고 싶다면
+```bash
+pip install -r requirements.txt
+streamlit run app.py
+```
+브라우저에서 `http://localhost:8501` 접속.
+
+## 참고
+- 기존 로컬 스크립트(`yt_python.py`, `yt_weekly_stats.py`, `yt_playlist_search_s3.py`)의 검색/분류/집계 로직을 그대로 이식했습니다.
+- 주차별 추이(주간 리포트)가 추가로 필요하면 알려주시면 옵션으로 추가해 드릴 수 있습니다.
