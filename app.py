@@ -138,12 +138,28 @@ def fetch_by_search(youtube, query, after, before):
     return videos
 
 
+def build_query_variants(keywords):
+    """'#' 있는 버전 / 없는 버전을 모두 만들어 검색 누락을 줄인다.
+    (YouTube Search API는 '#'이 포함된 q 값에서 relevance 매칭 범위가 좁아지는 경향이 있음)
+    """
+    variants = []
+    seen = set()
+    for kw in keywords:
+        candidates = [kw, kw.lstrip("#")] if kw.startswith("#") else [kw, "#" + kw]
+        for c in candidates:
+            if c and c not in seen:
+                seen.add(c)
+                variants.append(c)
+    return variants
+
+
 def collect_videos_search_mode(youtube, keywords, after, before, progress_cb=None):
     seen, all_videos = set(), []
-    for i, kw in enumerate(keywords):
+    queries = build_query_variants(keywords)
+    for i, q in enumerate(queries):
         if progress_cb:
-            progress_cb(i, len(keywords), kw)
-        for v in fetch_by_search(youtube, kw, after, before):
+            progress_cb(i, len(queries), q)
+        for v in fetch_by_search(youtube, q, after, before):
             if v["id"] not in seen:
                 seen.add(v["id"])
                 all_videos.append(v)
@@ -260,10 +276,16 @@ with st.sidebar:
     search_mode = st.radio(
         "모드 선택",
         ["전체 검색 (Search API)", "채널 지정 검색 (Playlist 방식, 쿼터 절약)"],
-        help="전체 검색: 키워드로 유튜브 전체를 검색 (쿼터 소모 큼).\n"
+        help="전체 검색: 키워드로 유튜브 전체를 검색 (쿼터 소모 큼). '#' 포함/미포함 버전을 자동으로 함께 검색합니다.\n"
         "채널 지정 검색: 지정한 채널들의 업로드 목록만 훑어서 쿼터를 크게 절약합니다. "
         "캠페인 참여 채널이 고정되어 있을 때 추천합니다.",
     )
+    if search_mode.startswith("전체"):
+        st.caption(
+            "ℹ️ '#'이 붙은 키워드는 '#' 없는 버전도 함께 검색해서 누락을 줄입니다. "
+            "다만 YouTube Search API 자체가 관련도 기반이라, 채널 지정 검색보다는 결과가 "
+            "적게 잡힐 수 있습니다."
+        )
 
     channel_ids = []
     if search_mode.startswith("채널"):
