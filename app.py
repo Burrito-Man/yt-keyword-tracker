@@ -22,6 +22,44 @@ from googleapiclient.errors import HttpError
 st.set_page_config(page_title="YouTube 키워드 트래커", page_icon="📊", layout="wide")
 
 # ----------------------------------------------------------------------------
+# 채널 ID 프리셋
+# 새 프리셋을 추가하려면 아래 딕셔너리에 "이름": [채널ID, ...] 형태로 추가하면 됩니다.
+# ----------------------------------------------------------------------------
+
+CHANNEL_PRESETS = {
+    "TW 세계수 S3": [
+        "UCBHyZqX3kt4AiAzgK0Qrcag",
+        "UCLlE4endO2rIcWqUqc76xDA",
+        "UCGKL5LoNqNAR8yCj8wiWScA",
+        "UCMQ9Az4Ob6caXuK0TQnTPqw",
+        "UCPuQUetajpqyPTFto2Uz-JA",
+        "UCQ7SNp-izmqQasmP3Oc2t5w",
+        "UCFaLDiwNtMTxbQcyzRynJQQ",
+        "UCK1ejENR4sra6wiCJgOuUOg",
+        "UC2WUQg_3PoToFOsppiQJ06Q",
+        "UCBao4tw7MoTfx3GZD3uj6jA",
+        "UCcumJaVU2oiUDMWU17T3rQg",
+        "UCIL5FSFDYMHthsURIQjkqpQ",
+        "UC2Y_OnxCHnbzvxkNgcG8sTw",
+        "UCL92rdEZGj2jTkKSAWAOh6Q",
+        "UCDyibt-oI2zJDPYxY542ddQ",
+        "UCQfiZ8zMUXuaThA2qYof1Rg",
+        "UC0MU_D3rKovbFfvprFJotOA",
+        "UChT2RpVSgR-a9goIyAhBU3Q",
+        "UC6drD8RH_SZg1Xj23YOkjUA",
+        "UC6JrwAxp3GAczaZCFhzjk_g",
+        "UCNJIm-sIiAzJHmzIaa6LybQ",
+        "UCa_u-cwdS0btZIbB6nxLxng",
+        "UC5nY3KM8Rv4Tm6lR8I0TP2Q",
+        "UCTyQHiHUcm5rZhaDCYIrrEQ",
+        "UCOd6CxXco94NNvVWRlKI95Q",
+        "UCWEJJnxptIYTz3blcibLZsA",
+        "UCY-6y_uo51dSCMrIFPAsDFw",
+        "UCWEyZxN5O3VO29SgaehNQkw",
+    ],
+}
+
+# ----------------------------------------------------------------------------
 # 유틸 함수
 # ----------------------------------------------------------------------------
 
@@ -229,12 +267,37 @@ with st.sidebar:
 
     channel_ids = []
     if search_mode.startswith("채널"):
+
+        def _apply_preset():
+            preset_name = st.session_state["channel_preset_select"]
+            if preset_name == "직접 입력":
+                st.session_state["channel_ids_text"] = ""
+            else:
+                st.session_state["channel_ids_text"] = "\n".join(CHANNEL_PRESETS[preset_name])
+
+        preset_choice = st.selectbox(
+            "채널 프리셋",
+            ["직접 입력"] + list(CHANNEL_PRESETS.keys()),
+            key="channel_preset_select",
+            on_change=_apply_preset,
+            help="자주 쓰는 채널 목록을 선택하면 아래 입력창에 자동으로 채워집니다. "
+            "선택 후에도 직접 추가/삭제해서 수정할 수 있습니다.",
+        )
+
+        if "channel_ids_text" not in st.session_state:
+            st.session_state["channel_ids_text"] = (
+                "\n".join(CHANNEL_PRESETS[preset_choice]) if preset_choice != "직접 입력" else ""
+            )
+
         channel_ids_raw = st.text_area(
             "채널 ID 목록 (한 줄에 하나씩, 'UC...' 형태)",
             height=150,
-            help="예: UCBHyZqX3kt4AiAzgK0Qrcag",
+            key="channel_ids_text",
+            help="예: UCBHyZqX3kt4AiAzgK0Qrcag / 프리셋 선택 후 직접 추가·삭제 가능",
         )
         channel_ids = [c.strip() for c in channel_ids_raw.splitlines() if c.strip()]
+        if channel_ids:
+            st.caption(f"현재 채널 {len(channel_ids)}개 지정됨")
 
     run_btn = st.button("🚀 검색 실행", type="primary", use_container_width=True)
 
