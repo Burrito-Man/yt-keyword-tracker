@@ -44,6 +44,13 @@ TEXT = {
         "match_mode_and": "AND (모두 포함)",
         "match_mode_help": "OR: 검색 결과 후보를 넓게 모은 뒤, 제목/설명/태그 중 하나라도 키워드를 포함하면 채택.\n"
         "AND: 제목/설명/태그 전체 텍스트에 모든 키워드가 포함되어야 채택.",
+        "match_scope_label": "키워드 검색 범위",
+        "match_scope_all": "제목 + 설명 + 태그 (기본, 권장)",
+        "match_scope_title": "제목만",
+        "match_scope_help": "이 설정은 검색된 영상 후보를 우리 쪽에서 최종적으로 채택할지 걸러내는 기준입니다 "
+        "(YouTube 자체 검색 대상 범위와는 별개).\n"
+        "제목+설명+태그: 설명란에만 키워드가 있는 영상도 채택 (더 많이 잡히지만, 관련 없는 영상이 섞일 가능성도 약간 있음).\n"
+        "제목만: 제목에 키워드가 명시된 영상만 채택 (더 정확하지만, 설명란에만 언급된 영상은 누락될 수 있음).",
         "period_header": "📅 검색 기간",
         "date_start_label": "시작일",
         "date_end_label": "종료일",
@@ -147,6 +154,13 @@ TEXT = {
         "match_mode_and": "AND（須全部包含）",
         "match_mode_help": "OR：先廣泛蒐集候選影片，只要標題／說明／標籤中有一項符合關鍵字即採用。\n"
         "AND：標題／說明／標籤的全部文字中必須包含所有關鍵字才會採用。",
+        "match_scope_label": "關鍵字搜尋範圍",
+        "match_scope_all": "標題＋說明＋標籤（預設，建議）",
+        "match_scope_title": "僅標題",
+        "match_scope_help": "此設定是我們對搜尋到的候選影片進行最終篩選的標準"
+        "（與YouTube本身的搜尋範圍無關）。\n"
+        "標題＋說明＋標籤：只要說明欄有出現關鍵字的影片也會被採用（涵蓋範圍較廣，但可能混入少量不相關影片）。\n"
+        "僅標題：只有標題中明確出現關鍵字的影片才會被採用（較精準，但可能遺漏僅在說明欄提及的影片）。",
         "period_header": "📅 搜尋期間",
         "date_start_label": "開始日期",
         "date_end_label": "結束日期",
@@ -339,11 +353,14 @@ def is_shorts(v):
     return h * 3600 + mins * 60 + s <= 60
 
 
-def keyword_match(v, keywords, mode_code):
+def keyword_match(v, keywords, mode_code, scope_code="ALL"):
     title = v["snippet"].get("title", "")
-    desc = v["snippet"].get("description", "")
-    tags = " ".join(v["snippet"].get("tags", []))
-    text = title + " " + desc + " " + tags
+    if scope_code == "TITLE_ONLY":
+        text = title
+    else:
+        desc = v["snippet"].get("description", "")
+        tags = " ".join(v["snippet"].get("tags", []))
+        text = title + " " + desc + " " + tags
     if mode_code == "AND":
         return all(kw in text for kw in keywords)
     return any(kw in text for kw in keywords)
@@ -526,6 +543,14 @@ with st.sidebar:
         help=t("match_mode_help"),
     )[1]
 
+    match_scope = st.radio(
+        t("match_scope_label"),
+        [("match_scope_all", "ALL"), ("match_scope_title", "TITLE_ONLY")],
+        format_func=lambda x: t(x[0]),
+        index=0,
+        help=t("match_scope_help"),
+    )[1]
+
     st.header(t("period_header"))
     col1, col2 = st.columns(2)
     with col1:
@@ -622,7 +647,7 @@ if run_btn:
 
         progress.empty()
 
-        videos = [v for v in raw_videos if keyword_match(v, keywords, match_mode)]
+        videos = [v for v in raw_videos if keyword_match(v, keywords, match_mode, match_scope)]
 
         if not videos:
             st.warning(t("warn_no_results"))
