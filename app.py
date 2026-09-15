@@ -12,7 +12,7 @@ YouTube 키워드 트래커
 """
 
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 import pandas as pd
 import streamlit as st
@@ -109,6 +109,31 @@ TEXT = {
         "api_error_prefix": "YouTube API 오류가 발생했습니다: {e}",
         "generic_error_prefix": "오류가 발생했습니다: {e}",
         "idle_info": "왼쪽 사이드바에서 조건을 설정하고 '검색 실행' 버튼을 눌러주세요.",
+        "app_mode_label": "🧭 모드 선택",
+        "app_mode_normal": "🔍 일반 검색",
+        "app_mode_report": "📊 특집 리포트",
+        "report_header": "📊 특집 리포트",
+        "report_select_label": "리포트 선택",
+        "report_config_title": "**리포트 구성**",
+        "report_channel_count": "채널 {n}개 (프리셋: {preset})",
+        "report_window_count": "총 {n}개 구간 (W{start} ~ W{end}, 기준일 전후 각 {half}주)",
+        "report_run_button": "🚀 특집 리포트 실행",
+        "report_progress": "구간 처리 중: {label} ({i}/{total})",
+        "report_spinner": "{n}개 구간을 순차 조회하는 중입니다...",
+        "report_summary_header": "📋 구간별 비교 표",
+        "report_col_window": "구간",
+        "report_col_period": "기간",
+        "report_col_count_suffix": " 영상 수",
+        "report_col_views_suffix": " 조회수",
+        "report_chart_count_header": "📈 영상 발행 수 추이",
+        "report_chart_views_header": "👁 조회수 합계 추이",
+        "report_drilldown_header": "🔎 구간별 상세 영상 목록",
+        "report_drilldown_group_none": "{group}: 해당 영상 없음",
+        "report_idle_info": "왼쪽에서 리포트를 선택하고 '특집 리포트 실행' 버튼을 눌러주세요.",
+        "report_csv_filename_note": "특집 리포트 요약",
+        "report_cat_pure_suffix": " 전용",
+        "report_cat_mixed": "혼합 (두 게임 모두 언급)",
+        "report_mutual_exclusion_note": "ℹ️ 제목에 두 게임 키워드가 모두 있으면 '혼합'으로 분류하고, 하나만 있으면 각 게임 전용으로 분류합니다 (중복 집계 방지).",
         "guide_header": "📘 API Key 발급 가이드 & 사용 유의사항 (처음이시면 펼쳐보세요)",
         "guide_body": """
 ### 1. YouTube API Key 발급 방법
@@ -219,6 +244,31 @@ TEXT = {
         "api_error_prefix": "發生YouTube API錯誤：{e}",
         "generic_error_prefix": "發生錯誤：{e}",
         "idle_info": "請在左側側邊欄設定條件後，點擊「開始搜尋」按鈕。",
+        "app_mode_label": "🧭 選擇模式",
+        "app_mode_normal": "🔍 一般搜尋",
+        "app_mode_report": "📊 專題報告",
+        "report_header": "📊 專題報告",
+        "report_select_label": "選擇報告",
+        "report_config_title": "**報告設定**",
+        "report_channel_count": "頻道 {n} 個（預設清單：{preset}）",
+        "report_window_count": "共 {n} 個區間（W{start} ~ W{end}，基準日前後各 {half} 週）",
+        "report_run_button": "🚀 執行專題報告",
+        "report_progress": "處理區間中：{label} ({i}/{total})",
+        "report_spinner": "正在依序查詢 {n} 個區間...",
+        "report_summary_header": "📋 各區間比較表",
+        "report_col_window": "區間",
+        "report_col_period": "期間",
+        "report_col_count_suffix": " 影片數",
+        "report_col_views_suffix": " 觀看次數",
+        "report_chart_count_header": "📈 影片發布數趨勢",
+        "report_chart_views_header": "👁 觀看次數合計趨勢",
+        "report_drilldown_header": "🔎 各區間詳細影片清單",
+        "report_drilldown_group_none": "{group}：無符合影片",
+        "report_idle_info": "請在左側選擇報告後，點擊「執行專題報告」按鈕。",
+        "report_csv_filename_note": "專題報告摘要",
+        "report_cat_pure_suffix": "專屬",
+        "report_cat_mixed": "混合（同時提及兩款遊戲）",
+        "report_mutual_exclusion_note": "ℹ️ 標題中若同時出現兩款遊戲的關鍵字，會歸類為「混合」；只出現一個則歸類為該遊戲專屬（避免重複計算）。",
         "guide_header": "📘 API金鑰申請指南與使用須知（第一次使用請展開查看）",
         "guide_body": """
 ### 1. 如何申請 YouTube API金鑰
@@ -329,6 +379,42 @@ CHANNEL_PRESETS = {
 }
 
 # ----------------------------------------------------------------------------
+# 특집 리포트 설정
+# 여러 키워드 그룹 + 고정 채널 프리셋 + 기준일 전후 여러 주차를 한 번에 비교하는
+# 사전 구성 리포트. 새 리포트를 추가하려면 아래 딕셔너리에 항목을 추가하면 됩니다.
+# ----------------------------------------------------------------------------
+
+SPECIAL_REPORTS = {
+    "s3_classic_vs_worldtree": {
+        "name_ko": "TW 세계수 S3 — 經典版 출시 전후 비교",
+        "name_zh": "TW 世界樹 S3 — 經典版上線前後比較",
+        "channel_preset": "TW 세계수 S3",
+        "pivot_date": date(2026, 7, 29),
+        "utc_offset": 8,
+        "window_start": -6,
+        "window_end": 6,
+        "groups": [
+            {
+                "key": "A",
+                "label_ko": "世界樹計畫 계열",
+                "label_zh": "世界樹計畫系列",
+                "keywords": ["世界樹計畫", "#世界樹計畫"],
+                "match_mode": "OR",
+                "match_scope": "TITLE_ONLY",
+            },
+            {
+                "key": "B",
+                "label_ko": "經典版 계열",
+                "label_zh": "經典版系列",
+                "keywords": ["新楓之谷經典版", "經典版"],
+                "match_mode": "OR",
+                "match_scope": "ALL",
+            },
+        ],
+    },
+}
+
+# ----------------------------------------------------------------------------
 # 유틸 함수
 # ----------------------------------------------------------------------------
 
@@ -373,6 +459,49 @@ def classify(v):
     if v.get("liveStreamingDetails"):
         return "LIVE"
     return "LONGFORM"
+
+
+def video_row(v):
+    """영상 하나를 결과 테이블용 표준 dict로 변환 (일반 검색·특집 리포트 공용)."""
+    return {
+        "category": classify(v),
+        "title": v["snippet"].get("title", ""),
+        "channel": v["snippet"].get("channelTitle", ""),
+        "published_at": v["snippet"].get("publishedAt", ""),
+        "views": int(v["statistics"].get("viewCount", 0)),
+        "url": f"https://www.youtube.com/watch?v={v['id']}",
+    }
+
+
+def compute_report_windows(pivot, start_n, end_n):
+    """기준일(pivot) 전후로 7일 단위 구간(W-n ~ W+n)을 계산. n=0(기준일 당일 단독)은 사용하지 않음:
+    음수는 기준일 이전으로 끝나는 7일, 양수는 기준일을 포함해 시작하는 7일."""
+    windows = []
+    for n in range(start_n, end_n + 1):
+        if n == 0:
+            continue
+        if n < 0:
+            s = pivot + timedelta(days=7 * n)
+            e = pivot + timedelta(days=7 * (n + 1) - 1)
+        else:
+            s = pivot + timedelta(days=7 * (n - 1))
+            e = pivot + timedelta(days=7 * n - 1)
+        windows.append({"n": n, "label": f"W{n:+d}", "start": s, "end": e})
+    return windows
+
+
+def classify_crossover(v, group_a, group_b):
+    """두 키워드 그룹(A/B) 매칭 결과를 조합해 상호배제 3분류로 반환.
+    PURE_A: A만 해당, PURE_B: B만 해당, MIXED: 둘 다 해당(제목에 두 게임 모두 언급), None: 둘 다 미해당."""
+    is_a = keyword_match(v, group_a["keywords"], group_a["match_mode"], group_a["match_scope"])
+    is_b = keyword_match(v, group_b["keywords"], group_b["match_mode"], group_b["match_scope"])
+    if is_a and is_b:
+        return "MIXED"
+    if is_a:
+        return "PURE_A"
+    if is_b:
+        return "PURE_B"
+    return None
 
 
 # ----------------------------------------------------------------------------
@@ -527,94 +656,134 @@ with st.sidebar:
         help=t("api_key_help"),
     )
 
-    st.header(t("search_cond_header"))
-    keywords_raw = st.text_area(
-        t("keywords_label"),
-        value="#世界樹計畫",
-        height=80,
-    )
-    keywords = [k.strip() for k in keywords_raw.splitlines() if k.strip()]
-
-    match_mode = st.radio(
-        t("match_mode_label"),
-        [("match_mode_or", "OR"), ("match_mode_and", "AND")],
+    app_mode = st.radio(
+        t("app_mode_label"),
+        [("app_mode_normal", "NORMAL"), ("app_mode_report", "REPORT")],
         format_func=lambda x: t(x[0]),
-        index=0,
-        help=t("match_mode_help"),
+        horizontal=True,
     )[1]
+    st.divider()
 
-    match_scope = st.radio(
-        t("match_scope_label"),
-        [("match_scope_all", "ALL"), ("match_scope_title", "TITLE_ONLY")],
-        format_func=lambda x: t(x[0]),
-        index=0,
-        help=t("match_scope_help"),
-    )[1]
-
-    st.header(t("period_header"))
-    col1, col2 = st.columns(2)
-    with col1:
-        date_start = st.date_input(t("date_start_label"), value=datetime(2026, 1, 1))
-    with col2:
-        date_end = st.date_input(t("date_end_label"), value=datetime.today())
-
-    utc_offset = st.selectbox(
-        t("timezone_label"),
-        options=[("tz_taiwan", 8), ("tz_korea", 9), ("tz_utc", 0)],
-        format_func=lambda x: t(x[0]),
-    )[1]
-
-    st.header(t("mode_header"))
-    search_mode = st.radio(
-        t("mode_label"),
-        [("mode_search", "SEARCH"), ("mode_playlist", "PLAYLIST")],
-        format_func=lambda x: t(x[0]),
-        help=t("mode_help"),
-    )[1]
-    if search_mode == "SEARCH":
-        st.caption(t("mode_search_caption"))
-
-    channel_ids = []
-    if search_mode == "PLAYLIST":
-
-        def _apply_preset():
-            preset_name = st.session_state["channel_preset_select"]
-            if preset_name == "CUSTOM":
-                st.session_state["channel_ids_text"] = ""
-            else:
-                st.session_state["channel_ids_text"] = "\n".join(CHANNEL_PRESETS[preset_name])
-
-        preset_choice = st.selectbox(
-            t("preset_label"),
-            ["CUSTOM"] + list(CHANNEL_PRESETS.keys()),
-            key="channel_preset_select",
-            format_func=lambda x: t("preset_custom") if x == "CUSTOM" else x,
-            on_change=_apply_preset,
-            help=t("preset_help"),
+    if app_mode == "NORMAL":
+        st.header(t("search_cond_header"))
+        keywords_raw = st.text_area(
+            t("keywords_label"),
+            value="#世界樹計畫",
+            height=80,
         )
+        keywords = [k.strip() for k in keywords_raw.splitlines() if k.strip()]
 
-        if "channel_ids_text" not in st.session_state:
-            st.session_state["channel_ids_text"] = (
-                "\n".join(CHANNEL_PRESETS[preset_choice]) if preset_choice != "CUSTOM" else ""
+        match_mode = st.radio(
+            t("match_mode_label"),
+            [("match_mode_or", "OR"), ("match_mode_and", "AND")],
+            format_func=lambda x: t(x[0]),
+            index=0,
+            help=t("match_mode_help"),
+        )[1]
+
+        match_scope = st.radio(
+            t("match_scope_label"),
+            [("match_scope_all", "ALL"), ("match_scope_title", "TITLE_ONLY")],
+            format_func=lambda x: t(x[0]),
+            index=0,
+            help=t("match_scope_help"),
+        )[1]
+
+        st.header(t("period_header"))
+        col1, col2 = st.columns(2)
+        with col1:
+            date_start = st.date_input(t("date_start_label"), value=datetime(2026, 1, 1))
+        with col2:
+            date_end = st.date_input(t("date_end_label"), value=datetime.today())
+
+        utc_offset = st.selectbox(
+            t("timezone_label"),
+            options=[("tz_taiwan", 8), ("tz_korea", 9), ("tz_utc", 0)],
+            format_func=lambda x: t(x[0]),
+        )[1]
+
+        st.header(t("mode_header"))
+        search_mode = st.radio(
+            t("mode_label"),
+            [("mode_search", "SEARCH"), ("mode_playlist", "PLAYLIST")],
+            format_func=lambda x: t(x[0]),
+            help=t("mode_help"),
+        )[1]
+        if search_mode == "SEARCH":
+            st.caption(t("mode_search_caption"))
+
+        channel_ids = []
+        if search_mode == "PLAYLIST":
+
+            def _apply_preset():
+                preset_name = st.session_state["channel_preset_select"]
+                if preset_name == "CUSTOM":
+                    st.session_state["channel_ids_text"] = ""
+                else:
+                    st.session_state["channel_ids_text"] = "\n".join(CHANNEL_PRESETS[preset_name])
+
+            preset_choice = st.selectbox(
+                t("preset_label"),
+                ["CUSTOM"] + list(CHANNEL_PRESETS.keys()),
+                key="channel_preset_select",
+                format_func=lambda x: t("preset_custom") if x == "CUSTOM" else x,
+                on_change=_apply_preset,
+                help=t("preset_help"),
             )
 
-        channel_ids_raw = st.text_area(
-            t("channel_ids_label"),
-            height=150,
-            key="channel_ids_text",
-            help=t("channel_ids_help"),
-        )
-        channel_ids = [c.strip() for c in channel_ids_raw.splitlines() if c.strip()]
-        if channel_ids:
-            st.caption(t("channel_count_caption", n=len(channel_ids)))
+            if "channel_ids_text" not in st.session_state:
+                st.session_state["channel_ids_text"] = (
+                    "\n".join(CHANNEL_PRESETS[preset_choice]) if preset_choice != "CUSTOM" else ""
+                )
 
-    run_btn = st.button(t("run_button"), type="primary", use_container_width=True)
+            channel_ids_raw = st.text_area(
+                t("channel_ids_label"),
+                height=150,
+                key="channel_ids_text",
+                help=t("channel_ids_help"),
+            )
+            channel_ids = [c.strip() for c in channel_ids_raw.splitlines() if c.strip()]
+            if channel_ids:
+                st.caption(t("channel_count_caption", n=len(channel_ids)))
+
+        run_btn = st.button(t("run_button"), type="primary", use_container_width=True)
+
+    else:  # REPORT
+        st.header(t("report_header"))
+        report_key = st.selectbox(
+            t("report_select_label"),
+            list(SPECIAL_REPORTS.keys()),
+            format_func=lambda k: SPECIAL_REPORTS[k]["name_ko" if CURRENT_LANG == "ko" else "name_zh"],
+        )
+        report = SPECIAL_REPORTS[report_key]
+
+        st.markdown(t("report_config_title"))
+        for g in report["groups"]:
+            glabel = g["label_ko"] if CURRENT_LANG == "ko" else g["label_zh"]
+            scope_label = t("match_scope_title") if g["match_scope"] == "TITLE_ONLY" else t("match_scope_all")
+            mode_label = t("match_mode_and") if g["match_mode"] == "AND" else t("match_mode_or")
+            st.caption(f"· **{glabel}**: {' / '.join(g['keywords'])} ({mode_label}, {scope_label})")
+        st.caption(
+            t("report_channel_count", n=len(CHANNEL_PRESETS[report["channel_preset"]]), preset=report["channel_preset"])
+        )
+        st.caption(
+            t(
+                "report_window_count",
+                n=report["window_end"] - report["window_start"],
+                start=report["window_start"],
+                end=report["window_end"],
+                half=report["window_end"],
+            )
+        )
+        st.caption(t("report_mutual_exclusion_note"))
+
+        run_report_btn = st.button(t("report_run_button"), type="primary", use_container_width=True)
 
 # ----------------------------------------------------------------------------
 # 실행
 # ----------------------------------------------------------------------------
 
-if run_btn:
+if app_mode == "NORMAL" and run_btn:
     if not api_key:
         st.error(t("err_need_api_key"))
         st.stop()
@@ -655,16 +824,7 @@ if run_btn:
 
         rows = []
         for v in videos:
-            rows.append(
-                {
-                    "category": classify(v),
-                    "title": v["snippet"].get("title", ""),
-                    "channel": v["snippet"].get("channelTitle", ""),
-                    "published_at": v["snippet"].get("publishedAt", ""),
-                    "views": int(v["statistics"].get("viewCount", 0)),
-                    "url": f"https://www.youtube.com/watch?v={v['id']}",
-                }
-            )
+            rows.append(video_row(v))
         df = pd.DataFrame(rows)
 
         CATEGORY_LABEL_KEY = {"LONGFORM": "cat_longform", "SHORTS": "cat_shorts", "LIVE": "cat_live"}
@@ -784,5 +944,137 @@ if run_btn:
         st.error(t("api_error_prefix", e=e))
     except Exception as e:
         st.error(t("generic_error_prefix", e=e))
+
+elif app_mode == "REPORT" and run_report_btn:
+    if not api_key:
+        st.error(t("err_need_api_key"))
+        st.stop()
+
+    report_channel_ids = CHANNEL_PRESETS[report["channel_preset"]]
+    windows = compute_report_windows(report["pivot_date"], report["window_start"], report["window_end"])
+    group_a, group_b = report["groups"][0], report["groups"][1]
+    group_labels = {g["key"]: (g["label_ko"] if CURRENT_LANG == "ko" else g["label_zh"]) for g in report["groups"]}
+
+    BUCKET_ORDER = ["PURE_A", "PURE_B", "MIXED"]
+    bucket_labels = {
+        "PURE_A": f"{group_labels[group_a['key']]}{t('report_cat_pure_suffix')}",
+        "PURE_B": f"{group_labels[group_b['key']]}{t('report_cat_pure_suffix')}",
+        "MIXED": t("report_cat_mixed"),
+    }
+
+    try:
+        youtube = build("youtube", "v3", developerKey=api_key)
+
+        progress = st.progress(0.0, text=t("report_progress", label=windows[0]["label"], i=1, total=len(windows)))
+        window_results = []
+
+        with st.spinner(t("report_spinner", n=len(windows))):
+            for idx, w in enumerate(windows):
+                progress.progress(
+                    (idx + 1) / len(windows),
+                    text=t("report_progress", label=w["label"], i=idx + 1, total=len(windows)),
+                )
+                after = to_utc(w["start"], report["utc_offset"], end_of_day=False)
+                before = to_utc(w["end"], report["utc_offset"], end_of_day=True)
+                raw_videos = collect_videos_playlist_mode(youtube, report_channel_ids, after, before)
+
+                bucket_videos = {b: [] for b in BUCKET_ORDER}
+                for v in raw_videos:
+                    b = classify_crossover(v, group_a, group_b)
+                    if b:
+                        bucket_videos[b].append(v)
+
+                bucket_data = {
+                    b: {
+                        "count": len(vids),
+                        "views": sum(int(v["statistics"].get("viewCount", 0)) for v in vids),
+                        "videos": vids,
+                    }
+                    for b, vids in bucket_videos.items()
+                }
+                window_results.append({"window": w, "buckets": bucket_data})
+
+        progress.empty()
+
+        # ------------------------------------------------------------------
+        # 구간별 비교 표
+        # ------------------------------------------------------------------
+        st.subheader(t("report_summary_header"))
+        summary_rows = []
+        for wr in window_results:
+            row = {
+                t("report_col_window"): wr["window"]["label"],
+                t("report_col_period"): f"{wr['window']['start']} ~ {wr['window']['end']}",
+            }
+            for b in BUCKET_ORDER:
+                bl = bucket_labels[b]
+                row[f"{bl}{t('report_col_count_suffix')}"] = wr["buckets"][b]["count"]
+                row[f"{bl}{t('report_col_views_suffix')}"] = wr["buckets"][b]["views"]
+            summary_rows.append(row)
+        summary_df = pd.DataFrame(summary_rows)
+        st.dataframe(summary_df, use_container_width=True, hide_index=True)
+
+        # ------------------------------------------------------------------
+        # 추이 그래프
+        # ------------------------------------------------------------------
+        window_labels = [wr["window"]["label"] for wr in window_results]
+
+        st.subheader(t("report_chart_count_header"))
+        count_chart_df = pd.DataFrame(
+            {bucket_labels[b]: [wr["buckets"][b]["count"] for wr in window_results] for b in BUCKET_ORDER},
+            index=window_labels,
+        )
+        st.line_chart(count_chart_df)
+
+        st.subheader(t("report_chart_views_header"))
+        views_chart_df = pd.DataFrame(
+            {bucket_labels[b]: [wr["buckets"][b]["views"] for wr in window_results] for b in BUCKET_ORDER},
+            index=window_labels,
+        )
+        st.line_chart(views_chart_df)
+
+        # ------------------------------------------------------------------
+        # 구간별 상세 영상 목록 (드릴다운)
+        # ------------------------------------------------------------------
+        st.subheader(t("report_drilldown_header"))
+        for wr in window_results:
+            w = wr["window"]
+            with st.expander(f"{w['label']}  ({w['start']} ~ {w['end']})"):
+                for b in BUCKET_ORDER:
+                    bl = bucket_labels[b]
+                    vids = wr["buckets"][b]["videos"]
+                    st.markdown(f"**{bl}**")
+                    if not vids:
+                        st.caption(t("report_drilldown_group_none", group=bl))
+                        continue
+                    vdf = pd.DataFrame([video_row(v) for v in vids]).sort_values("views", ascending=False)
+                    st.dataframe(
+                        vdf[["title", "channel", "views", "url"]].reset_index(drop=True),
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "title": st.column_config.TextColumn(t("table_col_title")),
+                            "channel": st.column_config.TextColumn(t("table_col_channel")),
+                            "views": st.column_config.NumberColumn(t("table_col_views"), format="%d"),
+                            "url": st.column_config.LinkColumn(t("link_col_label")),
+                        },
+                    )
+
+        csv = summary_df.to_csv(index=False).encode("utf-8-sig")
+        st.download_button(
+            t("csv_button_label"),
+            data=csv,
+            file_name=f"special_report_{report_key}.csv",
+            mime="text/csv",
+        )
+
+    except HttpError as e:
+        st.error(t("api_error_prefix", e=e))
+    except Exception as e:
+        st.error(t("generic_error_prefix", e=e))
+
 else:
-    st.info(t("idle_info"))
+    if app_mode == "NORMAL":
+        st.info(t("idle_info"))
+    else:
+        st.info(t("report_idle_info"))
