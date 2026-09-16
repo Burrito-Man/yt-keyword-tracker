@@ -112,6 +112,7 @@ TEXT = {
         "app_mode_label": "🧭 모드 선택",
         "app_mode_normal": "🔍 일반 검색",
         "app_mode_report": "📊 특집 리포트",
+        "app_mode_snapshot": "📋 채널 스냅샷",
         "report_header": "📊 특집 리포트",
         "report_select_label": "리포트 선택",
         "report_config_title": "**리포트 구성**",
@@ -131,6 +132,19 @@ TEXT = {
         "report_drilldown_group_none": "{group}: 해당 영상 없음",
         "report_idle_info": "왼쪽에서 리포트를 선택하고 '특집 리포트 실행' 버튼을 눌러주세요.",
         "report_csv_filename_note": "특집 리포트 요약",
+        "snapshot_header": "📋 채널 스냅샷",
+        "snapshot_desc": "키워드·날짜 필터 없이, 채널별 최신 업로드를 그대로 훑어봅니다.",
+        "snapshot_preset_label": "채널 프리셋",
+        "snapshot_n_label": "채널당 최근 영상 수",
+        "snapshot_n_help": "각 채널에서 가장 최근에 올라온 영상을 몇 개씩 가져올지 정합니다.",
+        "snapshot_run_button": "🚀 채널 스냅샷 실행",
+        "snapshot_progress": "채널 조회 중: {label} ({i}/{total})",
+        "snapshot_spinner": "채널 {n}개의 최신 영상을 조회하는 중입니다...",
+        "snapshot_idle_info": "왼쪽에서 채널 프리셋과 개수를 정하고 '채널 스냅샷 실행' 버튼을 눌러주세요.",
+        "snapshot_result_header": "📋 채널별 최신 영상",
+        "snapshot_col_channel": "채널",
+        "snapshot_empty_note": "이 채널에서는 영상을 찾지 못했습니다.",
+        "snapshot_total_caption": "채널 {n}개, 영상 {m}개 조회 완료",
         "report_cat_pure_suffix": " 전용",
         "report_cat_mixed": "혼합 (두 게임 모두 언급)",
         "report_mutual_exclusion_note": "ℹ️ 제목에 두 게임 키워드가 모두 있으면 '혼합'으로 분류하고, 하나만 있으면 각 게임 전용으로 분류합니다 (중복 집계 방지).",
@@ -247,6 +261,7 @@ TEXT = {
         "app_mode_label": "🧭 選擇模式",
         "app_mode_normal": "🔍 一般搜尋",
         "app_mode_report": "📊 專題報告",
+        "app_mode_snapshot": "📋 頻道快照",
         "report_header": "📊 專題報告",
         "report_select_label": "選擇報告",
         "report_config_title": "**報告設定**",
@@ -266,6 +281,19 @@ TEXT = {
         "report_drilldown_group_none": "{group}：無符合影片",
         "report_idle_info": "請在左側選擇報告後，點擊「執行專題報告」按鈕。",
         "report_csv_filename_note": "專題報告摘要",
+        "snapshot_header": "📋 頻道快照",
+        "snapshot_desc": "不套用關鍵字或日期篩選，直接瀏覽各頻道最新上傳的影片。",
+        "snapshot_preset_label": "頻道預設清單",
+        "snapshot_n_label": "每個頻道要看的最新影片數",
+        "snapshot_n_help": "設定要從每個頻道抓取幾部最新上傳的影片。",
+        "snapshot_run_button": "🚀 執行頻道快照",
+        "snapshot_progress": "查詢頻道中：{label} ({i}/{total})",
+        "snapshot_spinner": "正在查詢 {n} 個頻道的最新影片...",
+        "snapshot_idle_info": "請在左側選擇頻道預設清單與數量，點擊「執行頻道快照」按鈕。",
+        "snapshot_result_header": "📋 各頻道最新影片",
+        "snapshot_col_channel": "頻道",
+        "snapshot_empty_note": "此頻道找不到影片。",
+        "snapshot_total_caption": "已查詢 {n} 個頻道、共 {m} 部影片",
         "report_cat_pure_suffix": "專屬",
         "report_cat_mixed": "混合（同時提及兩款遊戲）",
         "report_mutual_exclusion_note": "ℹ️ 標題中若同時出現兩款遊戲的關鍵字，會歸類為「混合」；只出現一個則歸類為該遊戲專屬（避免重複計算）。",
@@ -631,6 +659,58 @@ def collect_videos_playlist_mode(youtube, channel_ids, after, before, progress_c
     return all_videos
 
 
+def fetch_latest_playlist_video_ids(youtube, playlist_id, n):
+    """업로드 재생목록에서 최신순으로 영상 ID를 최대 n개 가져온다 (날짜 필터 없음)."""
+    ids = []
+    page_token = None
+    while len(ids) < n:
+        res = (
+            youtube.playlistItems()
+            .list(
+                part="contentDetails",
+                playlistId=playlist_id,
+                maxResults=min(50, n - len(ids)),
+                pageToken=page_token,
+            )
+            .execute()
+        )
+        items = res.get("items", [])
+        if not items:
+            break
+        ids.extend(item["contentDetails"]["videoId"] for item in items if item.get("contentDetails", {}).get("videoId"))
+        page_token = res.get("nextPageToken")
+        if not page_token:
+            break
+    return ids[:n]
+
+
+def collect_channel_snapshot(youtube, channel_ids, n, progress_cb=None):
+    """채널별 최신 영상 n개를 (채널ID -> 영상 상세 리스트, 최신순) 딕셔너리로 반환. 키워드/날짜 필터 없음."""
+    results = {}
+    for i, ch_id in enumerate(channel_ids):
+        if progress_cb:
+            progress_cb(i, len(channel_ids), ch_id)
+        ch_id = ch_id.strip()
+        pl_id = ch_to_playlist_id(ch_id)
+        try:
+            ids = fetch_latest_playlist_video_ids(youtube, pl_id, n)
+            videos = []
+            for chunk_start in range(0, len(ids), 50):
+                chunk = ids[chunk_start : chunk_start + 50]
+                detail = (
+                    youtube.videos()
+                    .list(part="snippet,statistics,contentDetails,liveStreamingDetails", id=",".join(chunk))
+                    .execute()
+                )
+                videos.extend(detail.get("items", []))
+            video_map = {v["id"]: v for v in videos}
+            results[ch_id] = [video_map[vid] for vid in ids if vid in video_map]
+        except HttpError as e:
+            st.warning(t("warn_channel_error", ch=ch_id, e=e))
+            results[ch_id] = []
+    return results
+
+
 # ----------------------------------------------------------------------------
 # UI
 # ----------------------------------------------------------------------------
@@ -658,7 +738,7 @@ with st.sidebar:
 
     app_mode = st.radio(
         t("app_mode_label"),
-        [("app_mode_normal", "NORMAL"), ("app_mode_report", "REPORT")],
+        [("app_mode_normal", "NORMAL"), ("app_mode_report", "REPORT"), ("app_mode_snapshot", "SNAPSHOT")],
         format_func=lambda x: t(x[0]),
         horizontal=True,
     )[1]
@@ -748,7 +828,7 @@ with st.sidebar:
 
         run_btn = st.button(t("run_button"), type="primary", use_container_width=True)
 
-    else:  # REPORT
+    elif app_mode == "REPORT":
         st.header(t("report_header"))
         report_key = st.selectbox(
             t("report_select_label"),
@@ -778,6 +858,19 @@ with st.sidebar:
         st.caption(t("report_mutual_exclusion_note"))
 
         run_report_btn = st.button(t("report_run_button"), type="primary", use_container_width=True)
+
+    else:  # SNAPSHOT
+        st.header(t("snapshot_header"))
+        st.caption(t("snapshot_desc"))
+
+        snapshot_preset = st.selectbox(t("snapshot_preset_label"), list(CHANNEL_PRESETS.keys()))
+        snapshot_channel_ids = CHANNEL_PRESETS[snapshot_preset]
+        snapshot_n = st.number_input(
+            t("snapshot_n_label"), min_value=1, max_value=50, value=10, step=1, help=t("snapshot_n_help")
+        )
+        st.caption(t("report_channel_count", n=len(snapshot_channel_ids), preset=snapshot_preset))
+
+        run_snapshot_btn = st.button(t("snapshot_run_button"), type="primary", use_container_width=True)
 
 # ----------------------------------------------------------------------------
 # 실행
@@ -1073,8 +1166,89 @@ elif app_mode == "REPORT" and run_report_btn:
     except Exception as e:
         st.error(t("generic_error_prefix", e=e))
 
+elif app_mode == "SNAPSHOT" and run_snapshot_btn:
+    if not api_key:
+        st.error(t("err_need_api_key"))
+        st.stop()
+
+    try:
+        youtube = build("youtube", "v3", developerKey=api_key)
+
+        progress = st.progress(
+            0.0, text=t("snapshot_progress", label=snapshot_channel_ids[0], i=1, total=len(snapshot_channel_ids))
+        )
+
+        def snapshot_progress_cb(i, total, label):
+            progress.progress((i + 1) / total, text=t("snapshot_progress", label=label, i=i + 1, total=total))
+
+        with st.spinner(t("snapshot_spinner", n=len(snapshot_channel_ids))):
+            snapshot_results = collect_channel_snapshot(
+                youtube, snapshot_channel_ids, int(snapshot_n), snapshot_progress_cb
+            )
+
+        progress.empty()
+
+        st.subheader(t("snapshot_result_header"))
+
+        rows = []
+        for ch_id in snapshot_channel_ids:
+            for v in snapshot_results.get(ch_id.strip(), []):
+                rows.append(video_row(v))
+
+        empty_channels = [ch for ch in snapshot_channel_ids if not snapshot_results.get(ch.strip())]
+
+        if not rows:
+            st.warning(t("warn_no_results"))
+        else:
+            SNAP_CATEGORY_LABEL_KEY = {"LONGFORM": "cat_longform", "SHORTS": "cat_shorts", "LIVE": "cat_live"}
+            df = pd.DataFrame(rows)
+            df["category"] = df["category"].map(lambda c: t(SNAP_CATEGORY_LABEL_KEY[c]))
+
+            st.dataframe(
+                df,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "category": st.column_config.TextColumn(t("table_col_category")),
+                    "title": st.column_config.TextColumn(t("table_col_title")),
+                    "channel": st.column_config.TextColumn(t("table_col_channel")),
+                    "published_at": st.column_config.TextColumn(t("table_col_date")),
+                    "views": st.column_config.NumberColumn(t("table_col_views"), format="%d"),
+                    "url": st.column_config.LinkColumn(t("link_col_label")),
+                },
+            )
+            st.caption(t("snapshot_total_caption", n=len(snapshot_channel_ids), m=len(rows)))
+
+            if empty_channels:
+                st.caption(f"ℹ️ {t('snapshot_empty_note')} ({', '.join(empty_channels)})")
+
+            export_df = df.rename(
+                columns={
+                    "category": t("table_col_category"),
+                    "title": t("table_col_title"),
+                    "channel": t("table_col_channel"),
+                    "published_at": t("table_col_date"),
+                    "views": t("table_col_views"),
+                    "url": t("link_col_label"),
+                }
+            )
+            csv = export_df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                t("csv_button_label"),
+                data=csv,
+                file_name=f"channel_snapshot_{snapshot_preset}.csv",
+                mime="text/csv",
+            )
+
+    except HttpError as e:
+        st.error(t("api_error_prefix", e=e))
+    except Exception as e:
+        st.error(t("generic_error_prefix", e=e))
+
 else:
     if app_mode == "NORMAL":
         st.info(t("idle_info"))
-    else:
+    elif app_mode == "REPORT":
         st.info(t("report_idle_info"))
+    else:
+        st.info(t("snapshot_idle_info"))
