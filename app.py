@@ -67,6 +67,10 @@ TEXT = {
         "캠페인 참여 채널이 고정되어 있을 때 추천합니다.",
         "mode_search_caption": "ℹ️ '#'이 붙은 키워드는 '#' 없는 버전도 함께 검색해서 누락을 줄입니다. "
         "다만 YouTube Search API 자체가 관련도 기반이라, 채널 지정 검색보다는 결과가 적게 잡힐 수 있습니다.",
+        "exclude_official_label": "🚫 공식 채널 제외",
+        "exclude_official_help": "메이플스토리 IP 공식 채널(넥슨, 감마니아 등)의 영상을 검색 결과에서 제외합니다. "
+        "크리에이터 콘텐츠 성과만 보고 싶을 때 체크하세요.",
+        "exclude_official_caption": "제외 대상: {n}개 공식 채널",
         "preset_label": "채널 프리셋",
         "preset_custom": "직접 입력",
         "preset_help": "자주 쓰는 채널 목록을 선택하면 아래 입력창에 자동으로 채워집니다. "
@@ -216,6 +220,10 @@ TEXT = {
         "適合活動參與頻道已固定的情況。",
         "mode_search_caption": "ℹ️ 含「#」的關鍵字會自動一併搜尋不含「#」的版本以減少遺漏。"
         "不過由於 YouTube Search API 本身以相關性為基礎排序，結果可能會比指定頻道搜尋少。",
+        "exclude_official_label": "🚫 排除官方頻道",
+        "exclude_official_help": "從搜尋結果中排除 MapleStory IP 官方頻道（Nexon、Gamania 等）的影片。"
+        "只想看創作者內容成效時可勾選。",
+        "exclude_official_caption": "排除對象：{n} 個官方頻道",
         "preset_label": "頻道預設清單",
         "preset_custom": "手動輸入",
         "preset_help": "選擇常用的頻道清單後，會自動填入下方輸入框。"
@@ -338,6 +346,22 @@ def t(key, **kwargs):
 
 
 st.set_page_config(page_title=t("page_title"), page_icon="📊", layout="wide")
+
+# ----------------------------------------------------------------------------
+# 공식 채널 제외 목록
+# '전체 검색(Search API)' 모드에서 메이플스토리 IP 공식 채널의 영상을 결과에서
+# 제외하고 싶을 때 사용. 크리에이터 콘텐츠 성과만 보고 싶을 때 체크박스로 켠다.
+# ----------------------------------------------------------------------------
+
+OFFICIAL_EXCLUDED_CHANNEL_IDS = [
+    "UCZcyI32yv57Zz0Y8-Nr1V9A",  # NEXONKR
+    "UCU_hKD03cUTCvnOJpEmKvCg",  # MapleStoryKR
+    "UCC1veMJY2wElX0lpYOoNB1Q",  # 메이플M KR
+    "UCcOCpJNG2hR0wohtBVdeshA",  # MapleStory (NA)
+    "UCxpZ_6YQa8x95IxBwwlSsrg",  # MapleStory_TW
+    "UC-gJnQW-ZlQOKkWcIsTOlYA",  # MSW_ZHTW
+    "UCdS9tTcvPzYfV-7RLkkIsvw",  # MSW
+]
 
 # ----------------------------------------------------------------------------
 # 채널 ID 프리셋
@@ -789,8 +813,15 @@ with st.sidebar:
             format_func=lambda x: t(x[0]),
             help=t("mode_help"),
         )[1]
+
+        exclude_official = False
         if search_mode == "SEARCH":
             st.caption(t("mode_search_caption"))
+            exclude_official = st.checkbox(
+                t("exclude_official_label"), value=False, help=t("exclude_official_help")
+            )
+            if exclude_official:
+                st.caption(t("exclude_official_caption", n=len(OFFICIAL_EXCLUDED_CHANNEL_IDS)))
 
         channel_ids = []
         if search_mode == "PLAYLIST":
@@ -910,6 +941,9 @@ if app_mode == "NORMAL" and run_btn:
         progress.empty()
 
         videos = [v for v in raw_videos if keyword_match(v, keywords, match_mode, match_scope)]
+
+        if exclude_official:
+            videos = [v for v in videos if v["snippet"].get("channelId", "") not in OFFICIAL_EXCLUDED_CHANNEL_IDS]
 
         if not videos:
             st.warning(t("warn_no_results"))
