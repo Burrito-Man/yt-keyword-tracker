@@ -457,7 +457,61 @@ CHANNEL_PRESETS = {
         "UCr9C1dmbgPpG40aikOUJ2ZQ",
         "UC-pr9lfNYfPhwHH0hGd6IOg",
     ],
+    # MSW Creator Festival 2026(메크페) 참여 크리에이터 중 유튜브 채널이 확인된 채널만 포함 (2026-10-25 확인 기준)
+    "KR 메크페 참여 리스트": [
+        "UCewitUbsXnyjvJjGgxa0IYw",
+        "UCC1LvVTX2ySKYjeIXkAtvsQ",
+        "UCy-H-BPCHctNmUb80MeapvQ",
+        "UCVO0hgB-Tia3GZ4ebQ6ET7g",
+        "UC2CCaHqrKJi3enauPpziN5g",
+        "UC8CIM3d3zDYMk-3T5aAz0yw",
+        "UCE-6-bWkikwoP4_ooZNep3g",
+        "UCObAtsGu-W7ltG5sz8_1Lyw",
+        "UC0-ZCUCeCQBwKU15x0Aqk_g",
+        "UCD2YO_A_PVMgMDN9jpRrpVA",
+        "UCHxKSivB6JLZ1SEMdxd1fAg",
+        "UCBTsPtRCh6ln3IRQFjhjh1A",
+        "UCaaZFxjlHI3T_I-uFbldIGA",
+        "UCgjaQlejpAnIu0q-xtVfTEw",
+        "UC-Zedn7a_RJyb5hUQ-aGZog",
+        "UCUbOogiD-4PKDqaJfSOTC0g",
+        "UCs0LzOveQMLImmmTrMmP2sg",
+        "UCoNPTfleaF58461y-YIAnDA",
+        "UCUR5w0E-jQTOO8Q0FZ4ilYQ",
+        "UCb5NLtXAsTBrmaZVhyFa-Wg",
+        "UCl4nBkmJCDs6RR8uWldAqLA",
+        "UCmRL_430mSNs-6M6tcGXFCw",
+        "UCw9fP0nSoUygLDmvV1GdAZw",
+        "UC-9v2ASxz8f313YpiMF55eg",
+        "UCAkCZHtQdPWvbwaP1KJBjvA",
+    ],
+    "TW 메크페 참여 리스트": [
+        # 이벤트 페이지에 유튜브 링크가 없던 2개는 세계수 명단의 채널 ID로 보완 (총 12개)
+        "UCPuQUetajpqyPTFto2Uz-JA",
+        "UC-Es7ozDeMMPy9_jH6uL5TA",
+        "UCLlE4endO2rIcWqUqc76xDA",
+        "UC8ZFjwP46BoXvvtRTWoHnfw",
+        "UCMQ9Az4Ob6caXuK0TQnTPqw",
+        "UCQ7SNp-izmqQasmP3Oc2t5w",
+        "UC2Y_OnxCHnbzvxkNgcG8sTw",
+        "UC2WUQg_3PoToFOsppiQJ06Q",
+        "UC_gOXIfu5jngkBZVFFG_fMw",
+        "UCOGMb3Pb24mtHt8m3aXxfhQ",
+        "UCBao4tw7MoTfx3GZD3uj6jA",
+        "UCL92rdEZGj2jTkKSAWAOh6Q",
+    ],
 }
+
+# 프리셋 표시 이름 (중국어 번체 UI용 번역명). 여기 없는 프리셋은 원래 이름을 그대로 표시한다.
+PRESET_NAMES_ZH = {
+    "KR 메크페 참여 리스트": "KR MCF2026 參與名單",
+    "TW 메크페 참여 리스트": "TW MCF2026 參與名單",
+}
+
+
+def preset_display_name(key):
+    return PRESET_NAMES_ZH.get(key, key) if CURRENT_LANG == "zh" else key
+
 
 # ----------------------------------------------------------------------------
 # 특집 리포트 설정
@@ -866,7 +920,7 @@ with st.sidebar:
                 t("preset_label"),
                 ["CUSTOM"] + list(CHANNEL_PRESETS.keys()),
                 key="channel_preset_select",
-                format_func=lambda x: t("preset_custom") if x == "CUSTOM" else x,
+                format_func=lambda x: t("preset_custom") if x == "CUSTOM" else preset_display_name(x),
                 on_change=_apply_preset,
                 help=t("preset_help"),
             )
@@ -904,7 +958,11 @@ with st.sidebar:
             mode_label = t("match_mode_and") if g["match_mode"] == "AND" else t("match_mode_or")
             st.caption(f"· **{glabel}**: {' / '.join(g['keywords'])} ({mode_label}, {scope_label})")
         st.caption(
-            t("report_channel_count", n=len(CHANNEL_PRESETS[report["channel_preset"]]), preset=report["channel_preset"])
+            t(
+                "report_channel_count",
+                n=len(CHANNEL_PRESETS[report["channel_preset"]]),
+                preset=preset_display_name(report["channel_preset"]),
+            )
         )
         st.caption(
             t(
@@ -923,12 +981,14 @@ with st.sidebar:
         st.header(t("snapshot_header"))
         st.caption(t("snapshot_desc"))
 
-        snapshot_preset = st.selectbox(t("snapshot_preset_label"), list(CHANNEL_PRESETS.keys()))
+        snapshot_preset = st.selectbox(
+            t("snapshot_preset_label"), list(CHANNEL_PRESETS.keys()), format_func=preset_display_name
+        )
         snapshot_channel_ids = CHANNEL_PRESETS[snapshot_preset]
         snapshot_n = st.number_input(
             t("snapshot_n_label"), min_value=1, max_value=50, value=10, step=1, help=t("snapshot_n_help")
         )
-        st.caption(t("report_channel_count", n=len(snapshot_channel_ids), preset=snapshot_preset))
+        st.caption(t("report_channel_count", n=len(snapshot_channel_ids), preset=preset_display_name(snapshot_preset)))
 
         run_snapshot_btn = st.button(t("snapshot_run_button"), type="primary", use_container_width=True)
 
